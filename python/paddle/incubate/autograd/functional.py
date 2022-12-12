@@ -592,7 +592,7 @@ def _grad(ys, xs, v=None):
         ):
             xs_grad = xs_grad[0]
     else:
-        xs_grad = paddle.incubate.autograd.grad(ys, xs, v)
+        xs_grad = paddle.incubate.autograd.grad(ys)(xs, v)
     return _replace_none_with_zero_tensor(xs_grad, xs)
 
 

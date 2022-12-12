@@ -170,7 +170,7 @@ class TestDropoutGrad(unittest.TestCase):
                     if isinstance(static_xs, typing.Sequence)
                     else self.fun(static_xs)
                 )
-                ys_grad = paddle.incubate.autograd.grad(ys, static_xs, static_v)
+                ys_grad = paddle.incubate.autograd.grad(ys)(static_xs, static_v)
                 paddle.incubate.autograd.prim2orig(mp.block(0))
             exe = paddle.static.Executor()
             exe.run(sp)
@@ -290,7 +290,7 @@ class TestWithoutProgramGuard(unittest.TestCase):
                     if isinstance(static_xs, typing.Sequence)
                     else self.fun(static_xs)
                 )
-                xs_grad = paddle.incubate.autograd.grad(ys, static_xs, static_v)
+                xs_grad = paddle.incubate.autograd.grad(ys)(static_xs, static_v)
                 paddle.incubate.autograd.prim2orig(mp.block(0))
             exe = paddle.static.Executor()
             exe.run(sp)
@@ -308,7 +308,7 @@ class TestWithoutProgramGuard(unittest.TestCase):
                 if isinstance(static_xs, typing.Sequence)
                 else self.fun(static_xs)
             )
-            xs_grad = paddle.incubate.autograd.grad(ys, static_xs, static_v)
+            xs_grad = paddle.incubate.autograd.grad(ys)(static_xs, static_v)
             sp = paddle.fluid.framework.default_startup_program()
             mp = paddle.fluid.framework.default_main_program()
             exe = paddle.static.Executor()
@@ -803,7 +803,7 @@ class TestGrad(unittest.TestCase):
                     if isinstance(static_xs, typing.Sequence)
                     else self.fun(static_xs)
                 )
-                ys_grad = paddle.incubate.autograd.grad(ys, static_xs, static_v)
+                ys_grad = paddle.incubate.autograd.grad(ys)(static_xs, static_v)
                 paddle.incubate.autograd.prim2orig(mp.block(0))
             exe = paddle.static.Executor()
             exe.run(sp)
@@ -820,14 +820,14 @@ class TestGrad(unittest.TestCase):
     def test_illegal_param(self):
         paddle.incubate.autograd.enable_prim()
         with self.assertRaises(TypeError):
-            paddle.incubate.autograd.grad(
-                1, paddle.static.data('inputs', shape=[1])
+            paddle.incubate.autograd.grad(1)(
+                paddle.static.data('inputs', shape=[1])
             )
 
         with self.assertRaises(TypeError):
             paddle.incubate.autograd.grad(
-                paddle.static.data('targets', shape=[1]), 1
-            )
+                paddle.static.data('targets', shape=[1])
+            )(1)
         paddle.incubate.autograd.disable_prim()
 
     def test_disable_prim(self):
@@ -844,7 +844,7 @@ class TestGrad(unittest.TestCase):
                     if isinstance(static_xs, typing.Sequence)
                     else self.fun(static_xs)
                 )
-                ys_grad = paddle.incubate.autograd.grad(ys, static_xs, static_v)
+                ys_grad = paddle.incubate.autograd.grad(ys)(static_xs, static_v)
             exe = paddle.static.Executor()
             exe.run(sp)
             out = exe.run(mp, feed=feed, fetch_list=ys_grad)
@@ -1009,11 +1009,11 @@ class TestGradWithHigherOrder(unittest.TestCase):
                     else self.fun_pd(static_xs)
                 )
 
-                grad1 = paddle_grad(ys, static_xs, static_v)
-                grad2 = paddle_grad(grad1, static_xs, static_v)
-                grad3 = paddle_grad(grad2, static_xs, static_v)
-                grad4 = paddle_grad(grad3, static_xs, static_v)
-                grad5 = paddle_grad(grad4, static_xs, static_v)
+                grad1 = paddle_grad(ys)(static_xs, static_v)
+                grad2 = paddle_grad(grad1)(static_xs, static_v)
+                grad3 = paddle_grad(grad2)(static_xs, static_v)
+                grad4 = paddle_grad(grad3)(static_xs, static_v)
+                grad5 = paddle_grad(grad4)(static_xs, static_v)
                 paddle.incubate.autograd.prim2orig()
 
             fetch_list = [grad3, grad4, grad5]

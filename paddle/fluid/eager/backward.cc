@@ -117,7 +117,7 @@ std::vector<paddle::experimental::Tensor> RunBackward(
   // *Cross-batch accumulation happens at forward pass
 
   // GeneralGrad
-  bool is_general_grad = !inputs.empty();
+  bool is_general_grad = !inputs.empty(); // paddle.grad若有正向输入，进入新动态图模式
   if (is_general_grad) GeneralGrad::Instance().Clear();
 
   /* --- Initialization --- */
@@ -126,11 +126,11 @@ std::vector<paddle::experimental::Tensor> RunBackward(
   std::deque<GradNodeBase*> queue;
   std::deque<GradNodeBase*> orig_queue;
   std::unordered_map<GradNodeBase*, std::unique_ptr<GradTensorHolder>>
-      node_input_buffers_dict;
+      node_input_buffers_dict;// // node_input_buffers_dict作为字典用来存储每个反向节点的信息，GradTensorHolder用于存储每个dout
   for (size_t i = 0; i < tensors.size(); i++) {
     const paddle::experimental::Tensor& tensor = tensors[i];
 
-    AutogradMeta* auto_grad_meta = EagerUtils::nullable_autograd_meta(tensor);
+    AutogradMeta* auto_grad_meta = EagerUtils::nullable_autograd_meta(tensor);  //nullable_autograd_meta这个名字有毒，返回nullptr或cast<AutogradMeta*> (tensor)
     if (auto_grad_meta == nullptr) {
       VLOG(5) << "Skip auto grad since there is no grad op for var or loss is "
                  "stop_gradient=True: "
@@ -140,7 +140,7 @@ std::vector<paddle::experimental::Tensor> RunBackward(
     // Get grad input info from target tensors
     auto input_info = auto_grad_meta->OutRankInfo();
 
-    VLOG(5) << "Out Rank of Tensor is slot: " << input_info.first
+    VLOG(5) << "Out Rank of Tensor is slot: " << input_info.first // ？？？？？？<out_slot_id, out_slot_rank> <0, 0>? (slot是对于算子层级，非网络层级)
             << ", rank: " << input_info.second;
     // Get target GradNodeBase from target tensors
     auto shared_grad_node = auto_grad_meta->GetMutableGradNode();
@@ -171,7 +171,7 @@ std::vector<paddle::experimental::Tensor> RunBackward(
       VLOG(5) << "Create Value for grad input tensor " << i
               << " of grad node: " << grad_node->name();
       node_input_buffers_dict[grad_node] =
-          std::make_unique<GradTensorHolder>(grad_node->InputMeta());
+          std::make_unique<GradTensorHolder>(grad_node->InputMeta()); // 根据grad_node 的input信息（即forward的outputs信息）创建GradTensorHolder，用来记录dout信息
     }
     bool copy_from_grad_t =
         grad_tensors.size() > 0 && grad_tensors[i].initialized();
@@ -189,7 +189,7 @@ std::vector<paddle::experimental::Tensor> RunBackward(
       node_input_buffers_dict[grad_node]->CopyValueFromTensor(
           input_info.first, input_info.second, grad_tensors[i]);
     } else {
-      VLOG(3) << "Fill grad input tensor " << i << " with 1.0";
+      VLOG(3) << "Fill grad input tensor " << i << " with 1.0"; //默认网络输出的初始gradient补1，shape和dtype与output一致
       // Initialize tensor with 1.0
       // Forward Tensor "tensor" is passed to indicate tensortype, datatype and
       // dims

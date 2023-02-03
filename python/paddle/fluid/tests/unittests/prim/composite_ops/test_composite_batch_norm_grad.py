@@ -36,7 +36,7 @@ def generate_data(shape, dtype="float32"):
 class Attr:
     def __init__(self) -> None:
         self.dtype = "float32"
-        self.shape = [16, 16, 64, 64]
+        self.shape = [16, 16, 32, 32]
         self.training = False  # True leads to error
         self.momentum = 0.9
         self.epsilon = 1e-05

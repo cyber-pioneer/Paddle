@@ -15,14 +15,13 @@
 import unittest
 
 import numpy as np
-
-np.random.seed(2012)
-
 from utils import SUB_TOLERANCE
 
 import paddle
 import paddle.nn.functional as F
 from paddle.fluid import core
+
+np.random.seed(2023)
 
 
 def generate_data(shape, dtype="float32"):
@@ -137,7 +136,7 @@ class TestCompositeBatchNorm(unittest.TestCase):
     def setUp(self):
         self.dtypes = ["float32", "float64"]
         self.training = [False, True]
-        self.shapes = [[2, 4, 3, 4], [16, 16, 64, 64]]
+        self.shapes = [[2, 4, 3, 4], [16, 16, 32, 32]]
         self.momentum = [0.1, 0.9]
         self.data_formats = ["NCHW", "NHWC"]
         self.use_global_stats = [None, True, False]

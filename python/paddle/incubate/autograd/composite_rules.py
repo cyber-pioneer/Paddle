@@ -17,6 +17,7 @@
 # 2. The name and args of target op must be corresponding with standard description of op in
 #    ops.yaml or legacy_ops.yaml.
 
+
 from .primitives import *  # noqa: F403
 from .primreg import REGISTER_COMPOSITE, lookup_composite
 
@@ -72,19 +73,12 @@ def composite_batchnorm(
     batch_var = zeros(run_var.shape, run_var.dtype)
     if not use_run_stat:
         batch_mean = mean(x, reduce_axes, keepdim=True)
-        temp = subtract(x, broadcast_to(batch_mean, x.shape))
-        batch_var = mean(
-            multiply(temp, temp),
-            reduce_axes,
-            keepdim=True,
-        )
+        temp = mean(x * x, reduce_axes, keepdim=True)
+        batch_var = temp - batch_mean * batch_mean
         x_hat = divide(
-            subtract(x, broadcast_to(batch_mean, x.shape)),
+            subtract(x, batch_mean),
             sqrt(
-                add(
-                    broadcast_to(batch_var, x.shape),
-                    fill_constant(x.shape, batch_var.dtype, epsilon),
-                )
+                add(batch_var, fill_constant(x.shape, batch_var.dtype, epsilon))
             ),
         )
 
@@ -105,17 +99,16 @@ def composite_batchnorm(
         )
     else:
         x_hat = divide(
-            subtract(x, broadcast_to(reshape(run_mean, stats_shape), x.shape)),
+            subtract(x, reshape(run_mean, stats_shape)),
             sqrt(
                 add(
-                    broadcast_to(reshape(run_var, stats_shape), x.shape),
+                    reshape(run_var, stats_shape),
                     fill_constant(x.shape, x.dtype, epsilon),
                 )
             ),
         )
     y = add(
-        multiply(broadcast_to(reshape(scale, stats_shape), x_hat.shape), x_hat),
-        broadcast_to(reshape(bias, stats_shape), x_hat.shape),
+        multiply(reshape(scale, stats_shape), x_hat), reshape(bias, stats_shape)
     )
 
     # add op assign to detach tensor in void unsafe change outside the rule.

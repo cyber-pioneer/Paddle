@@ -133,7 +133,7 @@ def expect_forward(
     )
 
 
-class TestCompositeSoftmax(unittest.TestCase):
+class TestCompositeBatchNorm(unittest.TestCase):
     def setUp(self):
         self.dtypes = ["float32", "float64"]
         self.training = [False, True]

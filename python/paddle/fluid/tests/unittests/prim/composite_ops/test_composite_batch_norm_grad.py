@@ -15,6 +15,7 @@
 import unittest
 
 import numpy as np
+from utils import SUB_TOLERANCE
 
 import paddle
 import paddle.nn.functional as F
@@ -22,16 +23,9 @@ from paddle.fluid import core
 
 np.random.seed(2023)
 
-TOLERANCE = {
-    "float32": {
-        "forward": {"rtol": 1e-6, "atol": 1e-6},
-        "backward": {"rtol": 3e-6, "atol": 3e-6},
-    },
-    "float64": {
-        "forward": {"rtol": 1e-7, "atol": 1e-7},
-        "backward": {"rtol": 1e-7, "atol": 1e-7},
-    },
-}
+
+class Arg:
+    dout = None
 
 
 def generate_data(shape, dtype="float32"):
@@ -42,7 +36,7 @@ def generate_data(shape, dtype="float32"):
 class Attr:
     def __init__(self) -> None:
         self.dtype = "float32"
-        self.shape = [2, 1, 2, 3]
+        self.shape = [16, 16, 64, 64]
         self.training = False  # True leads to error
         self.momentum = 0.9
         self.epsilon = 1e-05
@@ -78,11 +72,11 @@ class Attr:
         return
 
     def get_rtol(self, flag):
-        rtol = TOLERANCE[self.dtype][flag].get("rtol")
+        rtol = SUB_TOLERANCE[self.dtype][flag].get("rtol")
         return rtol
 
     def get_atol(self, flag):
-        atol = TOLERANCE[self.dtype][flag].get("atol")
+        atol = SUB_TOLERANCE[self.dtype][flag].get("atol")
         return atol
 
 
@@ -116,32 +110,6 @@ def fn(
     return z
 
 
-def expect_forward(
-    inputs,
-    running_mean,
-    running_variance,
-    weight,
-    bias,
-    training,
-    momentum,
-    epsilon,
-    data_format,
-    use_global_stats,
-):
-    return fn(
-        inputs,
-        running_mean,
-        running_variance,
-        weight,
-        bias,
-        training,
-        momentum,
-        epsilon,
-        data_format,
-        use_global_stats,
-    )
-
-
 def expect_grad(
     x,
     running_mean,
@@ -167,19 +135,20 @@ def expect_grad(
         data_format,
         use_global_stats,
     )
-
-    gradients = paddle.grad(res, x)
+    dy = paddle.to_tensor(Arg.dout)
+    gradients = paddle.grad(res, x, dy)
     return gradients
 
 
-class TestCompositeSoftmax(unittest.TestCase):
+class TestCompositeBatchNorm(unittest.TestCase):
     def setUp(self):
         self.dtypes = ["float32"]
         self.training = [False, True]
+        self.shapes = [[16, 16, 64, 64], [2, 1, 2, 3]]
         self.momentum = [0.1, 0.9]
         self.epsilon = [1e-05, 2e-05]
-        self.data_format = ["NCHW", "NHWC"]
-        self.use_global_stats = [None, True]
+        self.data_formats = ["NCHW"]
+        self.use_global_stats = [None, True, False]
 
     def cal_composite(
         self, inputs, running_mean, running_variance, weight, bias
@@ -207,6 +176,7 @@ class TestCompositeSoftmax(unittest.TestCase):
             x5 = paddle.static.data(
                 'x5', shape=bias.shape, dtype=str(bias.dtype)
             )
+            dy = paddle.static.data('dy', shape=Arg.dout.shape)
             y = fn(
                 x1,
                 x2,
@@ -222,7 +192,7 @@ class TestCompositeSoftmax(unittest.TestCase):
             blocks = main_program.blocks
             paddle.incubate.autograd.to_prim(blocks)
 
-            z = paddle.static.gradients([y], [x1])
+            z = paddle.static.gradients([y], [x1], dy)
 
         exe = paddle.static.Executor()
         exe.run(startup_program)
@@ -234,6 +204,7 @@ class TestCompositeSoftmax(unittest.TestCase):
                 'x3': running_variance,
                 'x4': weight,
                 'x5': bias,
+                'dy': Arg.dout,
             },
             fetch_list=[z],
         )
@@ -242,12 +213,18 @@ class TestCompositeSoftmax(unittest.TestCase):
         return res
 
     def compare_backward(self):
-        np_data = generate_data(attrs.shape)
+        if attrs.training is True and attrs.use_global_stats is False:
+            # in this case, origin bn grad kernel is not the same as forward kernel.
+            return
+        np_data = generate_data(attrs.shape, attrs.dtype)
         tensor_data = paddle.to_tensor(np_data)
-        running_mean = paddle.to_tensor([0], dtype="float32")
-        running_variance = paddle.to_tensor([1], dtype="float32")
-        weight = paddle.to_tensor([2], dtype="float32")
-        bias = paddle.to_tensor([1], dtype="float32")
+        Arg.dout = np.random.random(np_data.shape).astype(attrs.dtype)
+        C = np_data.shape[1]
+
+        running_mean = paddle.zeros(C, dtype=attrs.dtype)
+        running_variance = paddle.ones(C, dtype=attrs.dtype)
+        weight = paddle.ones(C, dtype=attrs.dtype) * 2
+        bias = paddle.ones(C, dtype=attrs.dtype)
 
         expect = expect_grad(
             tensor_data,
@@ -261,11 +238,10 @@ class TestCompositeSoftmax(unittest.TestCase):
             attrs.data_format,
             attrs.use_global_stats,
         )[0].numpy()
-
-        np_running_mean = np.array([0], dtype="float32")
-        np_running_variance = np.array([1], dtype="float32")
-        np_weight = np.array([2], dtype="float32")
-        np_bias = np.array([1], dtype="float32")
+        np_running_mean = np.zeros(C, dtype=attrs.dtype)
+        np_running_variance = np.ones(C, dtype=attrs.dtype)
+        np_weight = np.ones(C, dtype=attrs.dtype) * 2
+        np_bias = np.ones(C, dtype=attrs.dtype)
 
         actual = self.cal_composite(
             np_data, np_running_mean, np_running_variance, np_weight, np_bias
@@ -274,20 +250,24 @@ class TestCompositeSoftmax(unittest.TestCase):
         np.testing.assert_allclose(
             expect,
             actual,
-            rtol=attrs.get_rtol("forward"),
-            atol=attrs.get_atol("forward"),
+            rtol=attrs.get_rtol("backward"),
+            atol=attrs.get_atol("backward"),
         )
 
-    def test_forward(self):
+    def test_backward(self):
         for i in self.training:
             for j in self.dtypes:
                 for m in self.momentum:
-                    for t in self.use_global_stats:
-                        attrs.set_training(i)
-                        attrs.set_dtype(j)
-                        attrs.set_momentum(m)
-                        attrs.set_use_global_stats(t)
-                        self.compare_backward()
+                    attrs.set_training(i)
+                    attrs.set_dtype(j)
+                    attrs.set_momentum(m)
+                    self.compare_backward()
+
+        for n in self.shapes:
+            for t in self.use_global_stats:
+                attrs.set_shape(n)
+                attrs.set_use_global_stats(t)
+                self.compare_backward()
 
 
 if __name__ == '__main__':

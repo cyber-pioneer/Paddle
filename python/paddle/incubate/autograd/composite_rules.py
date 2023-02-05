@@ -75,41 +75,20 @@ def composite_batchnorm(
         batch_mean = mean(x, reduce_axes, keepdim=True)
         temp = mean(x * x, reduce_axes, keepdim=True)
         batch_var = temp - batch_mean * batch_mean
+
         x_hat = divide(
-            subtract(x, batch_mean),
-            sqrt(
-                add(batch_var, fill_constant(x.shape, batch_var.dtype, epsilon))
-            ),
+            (x - reshape(batch_mean, stats_shape)),
+            sqrt(reshape(batch_var, stats_shape) + epsilon),
         )
 
-        momentum = fill_constant(run_mean.shape, run_mean.dtype, momentum)
-        run_mean = add(
-            multiply(momentum, run_mean),
-            multiply(
-                subtract(ones(run_mean.shape, run_mean.dtype), momentum),
-                reshape(batch_mean, run_mean.shape),
-            ),
-        )
-        run_var = add(
-            multiply(momentum, run_var),
-            multiply(
-                subtract(ones(run_var.shape, run_var.dtype), momentum),
-                reshape(batch_var, run_var.shape),
-            ),
-        )
+        run_mean = momentum * run_mean + (1 - momentum) * batch_mean
+        run_var = momentum * run_var + (1 - momentum) * batch_var
     else:
         x_hat = divide(
-            subtract(x, reshape(run_mean, stats_shape)),
-            sqrt(
-                add(
-                    reshape(run_var, stats_shape),
-                    fill_constant(x.shape, x.dtype, epsilon),
-                )
-            ),
+            (x - reshape(run_mean, stats_shape)),
+            sqrt(reshape(run_var, stats_shape) + epsilon),
         )
-    y = add(
-        multiply(reshape(scale, stats_shape), x_hat), reshape(bias, stats_shape)
-    )
+    y = reshape(scale, stats_shape) * x_hat + reshape(bias, stats_shape)
 
     # add op assign to detach tensor in void unsafe change outside the rule.
     batch_mean_ = assign(batch_mean)

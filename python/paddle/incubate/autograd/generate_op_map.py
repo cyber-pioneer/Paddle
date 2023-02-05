@@ -58,6 +58,8 @@ def generate_code(
     Generate dictiorary and save to file phi_ops_map.py. The target file records gap
     of description between current op and standard ones.
     """
+    dct = {}
+    map_dct = {}
     for op_path in [ops_yaml_path, ops_legacy_yaml_path]:
         pattern = re.compile(r'[(](.*)[)]', re.S)
         with open(op_path, "rt") as f:
@@ -74,7 +76,6 @@ def generate_code(
 
         with open(ops_compat_yaml_path, "rt") as f:
             ops_compat = yaml.safe_load(f)
-            map_dct = {}
             for item in ops_compat:
                 key = item['op']
                 if key.endswith(")"):

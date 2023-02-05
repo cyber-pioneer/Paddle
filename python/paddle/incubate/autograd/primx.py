@@ -679,7 +679,7 @@ def _lower_composite(block, blacklist=[]):
 
     elif isinstance(block, typing.Sequence):
         for item in block:
-            _lower_composite(item)
+            _lower_composite(item, blacklist)
         return
     else:
         raise TypeError

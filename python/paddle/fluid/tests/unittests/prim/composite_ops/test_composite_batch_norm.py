@@ -31,9 +31,9 @@ def generate_data(shape, dtype="float32"):
 
 class Attr:
     def __init__(self) -> None:
-        self.dtype = "float64"
+        self.dtype = "float32"
         self.shape = [4, 6, 12, 24]
-        self.training = False
+        self.training = True
         self.momentum = 0.9
         self.epsilon = 1e-05
         self.data_format = "NCHW"
@@ -136,7 +136,7 @@ class TestCompositeBatchNorm(unittest.TestCase):
     def setUp(self):
         self.dtypes = ["float32", "float64"]
         self.training = [False, True]
-        self.shapes = [[2, 4, 3, 4], [16, 16, 32, 32]]
+        self.shapes = [[8, 8, 16, 16], [2, 1, 2, 3]]
         self.momentum = [0.1, 0.9]
         self.data_formats = ["NCHW", "NHWC"]
         self.use_global_stats = [None, True, False]

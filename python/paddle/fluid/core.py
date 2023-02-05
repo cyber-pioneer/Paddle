@@ -447,6 +447,7 @@ def __sync_stat_with_flag(flag):
 def _test_use_sync(value):
     __sync_stat_with_flag(value)
 
+
 # ops in forward_blacklisk will not be replaced by composite ops.
 prim_config = {"forward_blacklist": []}
 

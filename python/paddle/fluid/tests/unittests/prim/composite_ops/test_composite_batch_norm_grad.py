@@ -36,8 +36,8 @@ def generate_data(shape, dtype="float32"):
 class Attr:
     def __init__(self) -> None:
         self.dtype = "float32"
-        self.shape = [16, 16, 32, 32]
-        self.training = False  # True leads to error
+        self.shape = [8, 8, 16, 16]
+        self.training = True
         self.momentum = 0.9
         self.epsilon = 1e-05
         self.data_format = "NCHW"
@@ -107,7 +107,9 @@ def fn(
         data_format=data_format,
         use_global_stats=use_global_stats,
     )
-    return z
+    out = z * paddle.to_tensor(Arg.dout)
+    res = paddle.mean(out)
+    return res
 
 
 def expect_grad(
@@ -135,8 +137,7 @@ def expect_grad(
         data_format,
         use_global_stats,
     )
-    dy = paddle.to_tensor(Arg.dout)
-    gradients = paddle.grad(res, x, dy)
+    gradients = paddle.grad(res, x)
     return gradients
 
 
@@ -144,7 +145,7 @@ class TestCompositeBatchNorm(unittest.TestCase):
     def setUp(self):
         self.dtypes = ["float32"]
         self.training = [False, True]
-        self.shapes = [[16, 16, 64, 64], [2, 1, 2, 3]]
+        self.shapes = [[8, 8, 16, 16], [2, 1, 2, 3]]
         self.momentum = [0.1, 0.9]
         self.epsilon = [1e-05, 2e-05]
         self.data_formats = ["NCHW"]
@@ -176,7 +177,6 @@ class TestCompositeBatchNorm(unittest.TestCase):
             x5 = paddle.static.data(
                 'x5', shape=bias.shape, dtype=str(bias.dtype)
             )
-            dy = paddle.static.data('dy', shape=Arg.dout.shape)
             y = fn(
                 x1,
                 x2,
@@ -192,7 +192,7 @@ class TestCompositeBatchNorm(unittest.TestCase):
             blocks = main_program.blocks
             paddle.incubate.autograd.to_prim(blocks)
 
-            z = paddle.static.gradients([y], [x1], dy)
+            z = paddle.static.gradients([y], [x1])
 
         exe = paddle.static.Executor()
         exe.run(startup_program)
@@ -204,7 +204,6 @@ class TestCompositeBatchNorm(unittest.TestCase):
                 'x3': running_variance,
                 'x4': weight,
                 'x5': bias,
-                'dy': Arg.dout,
             },
             fetch_list=[z],
         )

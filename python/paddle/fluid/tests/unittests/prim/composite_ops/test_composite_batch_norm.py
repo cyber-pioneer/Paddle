@@ -195,7 +195,8 @@ class TestCompositeBatchNorm(unittest.TestCase):
             fetch_list=[y],
         )
         paddle.disable_static()
-        core._set_prim_forward_enabled(False)
+        core._set_prim_all_enabled(False)
+
         return res
 
     def compare_forward(self):

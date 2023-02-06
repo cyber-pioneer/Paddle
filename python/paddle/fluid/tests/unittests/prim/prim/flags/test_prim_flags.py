@@ -23,7 +23,7 @@ from paddle.fluid import core
 
 
 class TestPrimFlags(unittest.TestCase):
-    def _test_prim_flags(self):
+    def test_prim_flags(self):
         self.assertFalse(core._is_bwd_prim_enabled())
         self.assertFalse(core._is_fwd_prim_enabled())
 

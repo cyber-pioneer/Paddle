@@ -76,17 +76,15 @@ def composite_batchnorm(
         temp = mean(x * x, reduce_axes, keepdim=True)
         batch_var = temp - batch_mean * batch_mean
 
-        x_hat = divide(
-            (x - reshape(batch_mean, stats_shape)),
-            sqrt(reshape(batch_var, stats_shape) + epsilon),
+        x_hat = (x - reshape(batch_mean, stats_shape)) / sqrt(
+            reshape(batch_var, stats_shape) + epsilon
         )
 
         run_mean = momentum * run_mean + (1 - momentum) * batch_mean
         run_var = momentum * run_var + (1 - momentum) * batch_var
     else:
-        x_hat = divide(
-            (x - reshape(run_mean, stats_shape)),
-            sqrt(reshape(run_var, stats_shape) + epsilon),
+        x_hat = (x - reshape(run_mean, stats_shape)) / sqrt(
+            reshape(run_var, stats_shape) + epsilon
         )
     y = reshape(scale, stats_shape) * x_hat + reshape(bias, stats_shape)
 

@@ -64,7 +64,6 @@ def generate_code(
         pattern = re.compile(r'[(](.*)[)]', re.S)
         with open(op_path, "rt") as f:
             ops = yaml.safe_load(f)
-            dct = {}
             for item in ops:
                 key = item['op']
                 if key in dct:

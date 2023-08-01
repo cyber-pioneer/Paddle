@@ -90,7 +90,7 @@ def _check_op_results(op_name, orig_outs, new_outs):
         return
 
 
-def lowering(
+def decompose(
     program,
     blacklist=frozenset(),
     whitelist=frozenset(),
@@ -136,7 +136,7 @@ def lowering(
     else:
         op_filter = lambda x: True
     with ir.core.program_guard(program):
-        _lowering_subgraph(
+        _decompose_subgraph(
             block,
             op_filter,
         )
@@ -144,7 +144,7 @@ def lowering(
     logging.debug(f"Decompose composite forward ops finish: {replace_ops}")
 
 
-def _lowering_subgraph(block, op_filter):
+def _decompose_subgraph(block, op_filter):
     """The operators in block wich satisfy the filter conditon will be decomposed into primitives."""
 
     if isinstance(block, Block):
@@ -203,12 +203,12 @@ def _lowering_subgraph(block, op_filter):
         # composite ops may contain other composite ops, thus, call _lower_composite again.
         # Indeed, recursive call will be done inside composite rule?
         if change:
-            _lowering_subgraph(block, op_filter)
+            _decompose_subgraph(block, op_filter)
         return
 
     elif isinstance(block, typing.Sequence):
         for item in block:
-            _lowering_subgraph(item, op_filter)
+            _decompose_subgraph(item, op_filter)
         return
     else:
         raise TypeError

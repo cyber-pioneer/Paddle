@@ -19,13 +19,10 @@ from paddle import ir
 from paddle.fluid import core
 from paddle.fluid.libpaddle.ir import Block, Program
 
-# To be removed in future
-from paddle.incubate.autograd.composite_rules import _composite
-from paddle.incubate.autograd.primreg import lookup_composite
+from .utils import get_decomp_rule
 
 
 def _as_tensors(xs):
-    # breakpoint()
     if isinstance(xs, ir.OpResult):
         return (xs,)
     elif isinstance(xs, typing.Sequence):
@@ -37,8 +34,6 @@ def _as_tensors(xs):
 def _prepare_python_api_arguments(op):
     """For standard api of operator, its inputs should keep consistent with organization of its inputs and attrs."""
     op_inputs = [x.source() for x in op.operands()]
-    # breakpoint()
-
     # Todo: api to get all attr values
     # op_attrs_dict = op.attrs()
 
@@ -151,13 +146,10 @@ def _decompose_subgraph(block, op_filter):
         # Todo1:
         # temp solution: python rule consisting of new ir prim api.
         # formal solution: c++ rule consisting of new ir prim api.
-        lower_fn = _composite
-        lookup_fn = lookup_composite
 
         # Todo2:
         # if output var of composite rule is None, this means this var is not needed
         # new ir should cover such case
-        none_vars_to_remove = set()
 
         change = None
 
@@ -170,10 +162,11 @@ def _decompose_subgraph(block, op_filter):
         # Step2: Process all ops in the target block
         input_args = _prepare_python_api_arguments(ops_list[1])
         # breakpoint()
-        for idx, op in enumerate(ops_list):
+        for op in ops_list:
             op_name = op.name()
+            decom_rule = get_decomp_rule(op_name)
 
-            lower = (lookup_fn(op_name) is not None) and op_filter(op)
+            lower = (decom_rule is not None) and op_filter(op)
 
             if lower:
                 change = True
@@ -181,10 +174,9 @@ def _decompose_subgraph(block, op_filter):
                 # Todo4:
                 # How to get indeed dict of inputs, attrs, outputs of origin op and map them to composite rule?
                 input_args = _prepare_python_api_arguments(op)
-
                 ir.set_insertion_point(op)
                 orig_outs = op.results()
-                new_outs = _as_tensors(lower_fn(op, *input_args))
+                new_outs = _as_tensors(decom_rule(*input_args))
                 # new_outs = _as_tensors(paddle.mean(*input_args))
                 # check dtype and shape
                 _check_op_results(op_name, orig_outs, new_outs)

@@ -13,14 +13,9 @@
 # limitations under the License.
 
 from .primitive_op import *  # noqa: F403
+from .utils import register_decomp
 
 
-def mean(x, axis, keepdim):
-    if paddle.fluid.core._is_fwd_prim_enabled():
-        mean_decomp(x, axis, keepdim)
-    else:
-        return mean(x, axis, keepdim)
-
-
-def mean_decomp(x, axis, keepdim):
-    pass
+@register_decomp('pd.sin')
+def temp_case_decomp(x):
+    return mean(x)

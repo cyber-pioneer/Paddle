@@ -847,6 +847,11 @@ Tensor square_decomp(const Tensor& x) {
 }
 
 template <typename T>
+Tensor index_sample_decomp(const Tensor& x, const Tensor& index) {
+  return x;
+}
+
+template <typename T>
 Tensor embedding_decomp(const Tensor& x,
                         const Tensor& weight,
                         const int64_t padding_idx,

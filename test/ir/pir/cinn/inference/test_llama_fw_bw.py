@@ -12,13 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import sys
 import unittest
 from os.path import dirname
 
-os.environ['FLAGS_prim_forward_blacklist'] = 'pd_op.embedding'
-
+# os.environ['FLAGS_prim_forward_blacklist'] = 'pd_op.embedding'
 import paddle
 
 sys.path.append(dirname(dirname(__file__)))

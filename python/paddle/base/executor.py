@@ -752,6 +752,16 @@ def _as_lodtensor(data, place, dtype=None):
 
 
 def _can_use_interpreter_core(program, place):
+    def update_scores_for_generation(
+        scores, next_scores, length, unfinished_flag
+    ):
+        # update scores
+
+        unfinished_scores = (
+            scores * length.astype(scores.dtype) + next_scores
+        ) / (length + 1).astype(scores.dtype)
+        return unfinished_scores
+
     compiled = isinstance(program, compiler.CompiledProgram) or isinstance(
         program._graph, compiler.CompiledProgram
     )
